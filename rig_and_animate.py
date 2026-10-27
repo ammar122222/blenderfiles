@@ -1,15 +1,20 @@
 import bpy
+import math
 
 
-def clear_debug_prints():
-    """Remove any leftover weight/debug print statements from text blocks."""
+def strip_weight_debug_lines():
+    """Delete any weight/debug logging lines left inside Blender text blocks."""
     for text in list(bpy.data.texts):
-        if "weight" in text.name.lower() or "debug" in text.name.lower():
-            lines = [ln for ln in text.as_string().splitlines()
-                     if "print" not in ln.lower() or "weight" not in ln.lower()]
+        kept = []
+        for line in text.as_string().splitlines():
+            low = line.lower()
+            if "print" in low and ("weight" in low or "debug" in low):
+                continue
+            kept.append(line)
+        if len(kept) != len(text.as_string().splitlines()):
             text.clear()
-            for ln in lines:
-                text.write(ln + "\n")
+            for line in kept:
+                text.write(line + "\n")
 
 
 def import_reference(filepath="assassin_reference.glb"):
@@ -61,7 +66,6 @@ def motion_animate(armature, mesh):
     # Legs swing (opposite phases)
     for f in range(1, 25):
         phase = (f / 24.0) * 6.283
-        import math
         thigh = math.sin(phase) * 0.5
         knee = max(0.0, -math.cos(phase)) * 0.8
         key("LeftUpLeg", (thigh, 0, 0), f)
@@ -72,7 +76,6 @@ def motion_animate(armature, mesh):
     # Arms counter-swing
     for f in range(1, 25):
         phase = (f / 24.0) * 6.283
-        import math
         swing = math.sin(phase) * 0.35
         key("LeftUpperArm", (-swing, 0, 0), f)
         key("RightUpperArm", (swing, 0, 0), f)
@@ -87,7 +90,7 @@ def motion_animate(armature, mesh):
 
 
 def main():
-    clear_debug_prints()
+    strip_weight_debug_lines()
     armature, mesh = import_reference()
     redo_rig(armature)
     motion_animate(armature, mesh)
