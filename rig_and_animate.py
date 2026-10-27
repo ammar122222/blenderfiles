@@ -25,12 +25,24 @@ def import_reference(filepath="assassin_reference.glb"):
 
 
 def redo_rig(armature):
-    """Rebuild clean deform-bone names and keep the existing skin weights intact."""
+    """Rebuild clean deform-bone names and keep the existing skin weights intact.
+
+    Bone names live in the Armature object's data, so renaming them does NOT
+    affect vertex-group (weight) binding - vgroups are re-linked by name after
+    each rename to guarantee the skin stays bound.
+    """
+    mesh_obj = next((o for o in bpy.data.objects
+                     if o.type == "MESH" and o.parent == armature), None)
     bpy.context.view_layer.objects.active = armature
     bpy.ops.object.mode_set(mode="EDIT")
-    for bone in armature.data.edit_bones:
+    for bone in list(armature.data.edit_bones):
         if bone.name.startswith("mixamorig:"):
-            bone.name = bone.name.replace("mixamorig:", "")
+            old = bone.name
+            new = old.replace("mixamorig:", "")
+            bone.name = new
+            # Keep vertex-group weights linked to the renamed bone
+            if mesh_obj and old in mesh_obj.vertex_groups:
+                mesh_obj.vertex_groups[old].name = new
     bpy.ops.object.mode_set(mode="OBJECT")
     return armature
 
@@ -82,11 +94,12 @@ def motion_animate(armature, mesh):
 
     bpy.ops.object.mode_set(mode="OBJECT")
 
-    # Make sure skin modifier still binds the mesh to the renamed rig
+    # Make sure the Armature (SKELETAL) modifier still binds the mesh to the rig
     if mesh:
-        mod = next((m for m in mesh.modifiers if m.type == "SKIN"), None)
-        if mod:
-            mod.object = armature
+        mod = next((m for m in mesh.modifiers if m.type == "ARMATURE"), None)
+        if mod is None:
+            mod = mesh.modifiers.new(name="Armature", type="ARMATURE")
+        mod.object = armature
 
 
 def main():
